@@ -5,10 +5,14 @@ import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.isVisible
+import androidx.room.Room
+import hwang.projects.basic.basic_calculator.model.History
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,9 +28,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.historyLayout)
     }
 
-    private val historyLinearLayout: View by lazy {
-        findViewById<View>(R.id.historyLinearLayout)
+    private val historyLinearLayout: LinearLayout by lazy {
+        findViewById<LinearLayout>(R.id.historyLinearLayout)
     }
+
+    lateinit var db: AppDatabase
 
     private var isOperator = false
     private var hasOperator = false
@@ -34,6 +40,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        //onCreate 되는 시점에 값을 할당
+        db = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java,
+            "historyDB"
+        ).build()
     }
 
     fun buttonClicked(v: View) {
@@ -176,8 +189,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        //미리 expressionText, resultText 저장 -> Main 쓰레드가 먼저 실행될지, 아래 쓰레드가 먼저 될지 장담X
         val expressionText = expressionTextView.text.toString()
         val resultText = calculateExpression()
+
+        //DB에 Insert, Select 등은 메인쓰레드가아니라 새로운 쓰레드에서 진행해야된다
+        Thread(Runnable {
+            db.historyDao().insertHistory(History(null, expressionText, resultText))
+        }).start()
 
         resultTextView.text = ""
         expressionTextView.text = resultText //결과를 띄워준다
@@ -195,8 +214,24 @@ class MainActivity : AppCompatActivity() {
 
     fun historyButtonClicked(v: View) {
         historyLayout.isVisible = true
-        //TODO 디비에서 모든 기록 가져오기
-        //TODO 뷰에 모든 기록 할당하기
+        historyLinearLayout.removeAllViews() //LinearLayout 하위의 View 모두 삭제됨
+
+        //메인 쓰레드가 아니기때문에 메인쓰레드로 전환을 해서 UI 작업을 해줘야한다
+        Thread(Runnable {
+            db.historyDao().getAll().reversed().forEach {
+                runOnUiThread {
+
+                    //View 생성
+                    val historyView =
+                        LayoutInflater.from(this).inflate(R.layout.history_row, null, false)
+                    historyView.findViewById<TextView>(R.id.expressionTextView).text = it.expression
+                    historyView.findViewById<TextView>(R.id.resultTextView).text = " = ${it.result}"
+
+                    //View가 하나하나 위에서부터 쌓임(Linear) / ScrollView
+                    historyLinearLayout.addView(historyView)
+                }
+            }
+        }).start()
     }
 
     fun closeHistoryButtonClicked(v: View) {
@@ -204,11 +239,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun historyClearButtonClicked(v: View) {
-        //TODO 디비에서 모든 기록 삭제
-        //TODO 뷰에서 모든 기록 삭제
+        historyLinearLayout.removeAllViews()
+        Thread(Runnable {
+            db.historyDao().deleteAll()
+        }).start()
     }
-
-
 }
 
 //확장함수 구현

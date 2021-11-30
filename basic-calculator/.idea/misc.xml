@@ -7,7 +7,8 @@
         <entry key="app/src/main/res/drawable/button_background.xml" value="0.3333333333333333" />
         <entry key="app/src/main/res/drawable/button_background_green.xml" value="0.2814814814814815" />
         <entry key="app/src/main/res/drawable/ic_launcher_background.xml" value="0.2814814814814815" />
-        <entry key="app/src/main/res/layout/activity_main.xml" value="0.55" />
+        <entry key="app/src/main/res/layout/activity_main.xml" value="0.47386172006745364" />
+        <entry key="app/src/main/res/layout/history_row.xml" value="0.3795289855072464" />
       </map>
     </option>
   </component>
